@@ -2,10 +2,6 @@ defmodule PhoenixBootstrapForm do
 
   alias Phoenix.HTML.{Tag, Form}
 
-  @label_col_class    "col-sm-2"
-  @control_col_class  "col-sm-10"
-  @label_align_class  "text-sm-right"
-
   def select(form = %Form{}, field, options, opts \\[]) do
     draw_generic_input(:select, form, field, options, opts)
   end
@@ -27,9 +23,11 @@ defmodule PhoenixBootstrapForm do
     help      = draw_help(help)
     error     = draw_error_message(get_error(form, field))
 
-    content = Tag.content_tag :div, class: "#{control_col_class(form)} ml-auto" do
-      [draw_form_check(checkbox, label, input_opts[:inline]), help, error]
-    end
+    content = [
+      draw_form_check(checkbox, label, input_opts[:inline]),
+      help,
+      error
+    ]
 
     draw_form_group("", content)
   end
@@ -53,39 +51,17 @@ defmodule PhoenixBootstrapForm do
       draw_form_check(Form.radio_button(form, field, value, class: "form-check-input"), label, input_opts[:inline])
     end)
 
-    content = Tag.content_tag :div, class: "#{control_col_class(form)}" do
-      [radios, help, error]
-    end
+    content = [radios, help, error]
 
     draw_form_group(draw_label(form, field, opts), content)
   end
 
-  def submit(form = %Form{}, opts) when is_list(opts),  do: draw_submit(form, nil, opts)
-  def submit(form = %Form{}, label),                    do: draw_submit(form, label, [])
-  def submit(form = %Form{}, label, opts \\ []),        do: draw_submit(form, label, opts)
-  def submit(form = %Form{}),                           do: draw_submit(form, nil, [])
-
-  def static(form = %Form{}, label, content) do
-    label   = Tag.content_tag :label, label, class: "col-form-label #{label_align_class(form)} #{label_col_class(form)}"
-    content = Tag.content_tag :div, content, class: "form-control-plaintext #{control_col_class(form)}"
-    draw_form_group(label, content)
+  def submit(form = %Form{}, opts) when is_list(opts) do
+    draw_submit(form, nil, opts)
   end
-
-  # -- Private methods ---------------------------------------------------------
-  defp label_col_class(form) do
-    default = Application.get_env(:phoenix_bootstrap_form, :label_col_class, @label_col_class)
-    Keyword.get(form.options, :label_col, default)
-  end
-
-  defp control_col_class(form) do
-    default = Application.get_env(:phoenix_bootstrap_form, :control_col_class, @control_col_class)
-    Keyword.get(form.options, :control_col, default)
-  end
-
-  defp label_align_class(form) do
-    default = Application.get_env(:phoenix_bootstrap_form, :label_align_class, @label_align_class)
-    Keyword.get(form.options, :label_align, default)
-  end
+  def submit(form = %Form{}, label),             do: draw_submit(form, label, [])
+  def submit(form = %Form{}, label, opts \\ []), do: draw_submit(form, label, opts)
+  def submit(form = %Form{}),                    do: draw_submit(form, nil, [])
 
   defp merge_css_classes(opts) do
     {classes, rest} = Keyword.split(opts, [:class])
@@ -102,43 +78,49 @@ defmodule PhoenixBootstrapForm do
     end
   end
 
-  defp has_error?(%Form{errors: errors}, field),  do: Keyword.has_key?(errors, field)
-  defp has_error?(_, _),                          do: false
+  defp has_error?(%Form{errors: errors}, field) do
+    Keyword.has_key?(errors, field)
+  end
+  defp has_error?(_, _), do: false
 
   defp get_error(form, field) do
     case has_error?(form, field) do
       true ->
         msg   = form.errors[field] |> elem(0)
         opts  = form.errors[field] |> elem(1)
-        Enum.reduce(opts, msg, fn({key, value}, _acc) ->
-         String.replace(msg, "%{#{key}}", to_string(value))
-        end)
+        format_error_message(msg, opts)
       _ -> nil
     end
   end
 
+  defp format_error_message(msg, []), do: msg
+  defp format_error_message(msg, opts) do
+    {key, value} = hd(opts)
+    String.replace(msg, "%{#{key}}", to_string(value))
+    |> format_error_message(tl(opts))
+  end
+
   defp draw_generic_input(type, form, field, options, opts) do
     draw_form_group(
-      draw_label(form, field, opts), draw_control(type, form, field, options, opts)
+      draw_label(form, field, opts),
+      draw_control(type, form, field, options, opts)
     )
   end
 
   defp draw_control(type, form, field, options, opts) do
-    Tag.content_tag :div, class: control_col_class(form) do
-      is_valid_class = is_valid_class(form, field)
-      input_opts = [class: "form-control #{is_valid_class}"] ++ Keyword.get(opts, :input, [])
-      {prepend, input_opts} = Keyword.pop(input_opts, :prepend)
-      {append, input_opts}  = Keyword.pop(input_opts, :append)
-      {help, input_opts}    = Keyword.pop(input_opts, :help)
+    is_valid_class = is_valid_class(form, field)
+    input_opts = [class: "form-control #{is_valid_class}"] ++ Keyword.get(opts, :input, [])
+    {prepend, input_opts} = Keyword.pop(input_opts, :prepend)
+    {append, input_opts}  = Keyword.pop(input_opts, :append)
+    {help, input_opts}    = Keyword.pop(input_opts, :help)
 
-      input = draw_input(type, form, field, options, input_opts)
-        |> draw_input_group(prepend, append)
+    input = draw_input(type, form, field, options, input_opts)
+      |> draw_input_group(prepend, append)
 
-      help  = draw_help(help)
-      error = draw_error_message(get_error(form, field))
+    help  = draw_help(help)
+    error = draw_error_message(get_error(form, field))
 
-      [input, help, error]
-    end
+    [input, help, error]
   end
 
   defp draw_input(:select, form, field, options, opts) do
@@ -150,7 +132,7 @@ defmodule PhoenixBootstrapForm do
   end
 
   defp draw_form_group(label, content) do
-    Tag.content_tag :div, class: "form-group row" do
+    Tag.content_tag :div, class: "form-group" do
       [label, content]
     end
   end
@@ -158,8 +140,10 @@ defmodule PhoenixBootstrapForm do
   defp draw_label(form, field, opts) when is_atom(field) do
     label_opts = Keyword.get(opts, :label, [])
     {text, label_opts} = Keyword.pop(label_opts, :text, Form.humanize(field))
+    if Keyword.get(label_opts, :required, false) do
+      text = text <> " *"
+    end
 
-    label_opts = [class: "col-form-label #{label_align_class(form)} #{label_col_class(form)}"] ++ label_opts
     Form.label(form, field, text, merge_css_classes(label_opts))
   end
 
@@ -183,9 +167,7 @@ defmodule PhoenixBootstrapForm do
   defp draw_submit(form = %Form{}, label, opts) do
     {alternative, opts} = Keyword.pop(opts, :alternative, "")
     opts = [class: "btn"] ++ opts
-    content = Tag.content_tag :div, class: "#{control_col_class(form)} ml-auto" do
-      [Form.submit(label || "Submit", merge_css_classes(opts)), alternative]
-    end
+    content = [Form.submit(label || "Submit", merge_css_classes(opts)), alternative]
     draw_form_group("", content)
   end
 
