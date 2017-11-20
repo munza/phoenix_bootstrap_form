@@ -140,11 +140,13 @@ defmodule PhoenixBootstrapForm do
   defp draw_label(form, field, opts) when is_atom(field) do
     label_opts = Keyword.get(opts, :label, [])
     {text, label_opts} = Keyword.pop(label_opts, :text, Form.humanize(field))
-    if Keyword.get(label_opts, :required, false) do
-      text = text <> " *"
-    end
+    text_value =
+      case Keyword.get(label_opts, :required, false) do
+        true -> text <> " *"
+        false -> text
+      end
 
-    Form.label(form, field, text, merge_css_classes(label_opts))
+    Form.label(form, field, text_value, merge_css_classes(label_opts))
   end
 
   defp draw_input_group(input, nil, nil), do: input
@@ -164,7 +166,7 @@ defmodule PhoenixBootstrapForm do
     Tag.content_tag(:small, content, class: "form-text text-muted")
   end
 
-  defp draw_submit(form = %Form{}, label, opts) do
+  defp draw_submit(%Form{}, label, opts) do
     {alternative, opts} = Keyword.pop(opts, :alternative, "")
     opts = [class: "btn"] ++ opts
     content = [Form.submit(label || "Submit", merge_css_classes(opts)), alternative]
